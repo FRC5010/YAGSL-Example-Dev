@@ -9,6 +9,8 @@ import swervelib.motors.ThriftyNovaSwerve;
 public class ThriftyNovaEncoderSwerve extends SwerveAbsoluteEncoder {
     /** The absolute encoder is directly interfaced through the Thrifty Nova motor. */
     protected ThriftyNovaSwerve motor;
+    protected boolean inverted = false;
+    protected double offset = 0.0;
    
     /**
      * Create the {@link ThriftyNovaEncoderSwerve} object as an absolute encoder from the {@link ThriftyNovaSwerve} motor.
@@ -41,7 +43,7 @@ public class ThriftyNovaEncoderSwerve extends SwerveAbsoluteEncoder {
      */
     @Override
     public void configure(boolean inverted) {
-        motor.setInverted(inverted);
+        this.inverted = inverted;
     }
 
     /**
@@ -51,7 +53,7 @@ public class ThriftyNovaEncoderSwerve extends SwerveAbsoluteEncoder {
      */
     @Override
     public double getAbsolutePosition() {
-        return motor.getPosition();
+        return (motor.getPosition() + offset) * (inverted ? -1.0 : 1.0);
     }
 
     /**
@@ -70,17 +72,17 @@ public class ThriftyNovaEncoderSwerve extends SwerveAbsoluteEncoder {
      */
     @Override
     public boolean setAbsoluteEncoderOffset(double offset) {
+        this.offset = offset;
         return true;
     }
 
     /**
      * Get the absolute encoder velocity.
-     * ** Currently unsupported
+     * WARNING: Angular velocity is generally not measurable at high speeds.
      * @return Velocity in degrees per second.
      */
     @Override
     public double getVelocity() {
-//        return motor.getVelocity();
-        throw new UnsupportedOperationException("Unimplemented method 'getVelocity'");
+       return motor.getVelocity();
     }    
 }
