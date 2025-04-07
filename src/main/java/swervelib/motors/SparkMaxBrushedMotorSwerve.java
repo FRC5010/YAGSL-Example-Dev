@@ -37,7 +37,7 @@ public class SparkMaxBrushedMotorSwerve extends SwerveMotor
   /**
    * Config retry delay.
    */
-  private final double                          configDelay            = Milliseconds.of(5).in(Seconds);
+  private final double                    configDelay = Milliseconds.of(5).in(Seconds);
   /**
    * SparkMAX Instance.
    */
@@ -49,7 +49,7 @@ public class SparkMaxBrushedMotorSwerve extends SwerveMotor
   /**
    * Integrated encoder.
    */
-  public        Optional<RelativeEncoder>       encoder                = Optional.empty();
+  public        Optional<RelativeEncoder> encoder     = Optional.empty();
   /**
    * Closed-loop PID controller.
    */
@@ -77,7 +77,7 @@ public class SparkMaxBrushedMotorSwerve extends SwerveMotor
   /**
    * Configuration object for {@link SparkMax} motor.
    */
-  private       SparkMaxConfig                  cfg                    = new SparkMaxConfig();
+  private       SparkMaxConfig            cfg         = new SparkMaxConfig();
 
   /**
    * Initialize the swerve motor.
@@ -192,7 +192,8 @@ public class SparkMaxBrushedMotorSwerve extends SwerveMotor
   }
 
   @Override
-  public void close() {
+  public void close()
+  {
     motor.close();
   }
 
@@ -213,10 +214,6 @@ public class SparkMaxBrushedMotorSwerve extends SwerveMotor
    */
   public void updateConfig(SparkMaxConfig cfgGiven)
   {
-    if (!DriverStation.isDisabled())
-    {
-      throw new RuntimeException("Configuration changes cannot be applied while the robot is enabled.");
-    }
     cfg.apply(cfgGiven);
     configureSparkMax(() -> motor.configure(cfg, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters));
   }
@@ -453,6 +450,10 @@ public class SparkMaxBrushedMotorSwerve extends SwerveMotor
   public void setInverted(boolean inverted)
   {
     cfg.inverted(inverted);
+    if (isDriveMotor)
+    {
+      cfg.encoder.inverted(inverted);
+    }
   }
 
   /**
@@ -461,10 +462,6 @@ public class SparkMaxBrushedMotorSwerve extends SwerveMotor
   @Override
   public void burnFlash()
   {
-    if (!DriverStation.isDisabled())
-    {
-      throw new RuntimeException("Config updates cannot be applied while the robot is Enabled!");
-    }
     configureSparkMax(() -> {
       return motor.configure(cfg, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);
     });
