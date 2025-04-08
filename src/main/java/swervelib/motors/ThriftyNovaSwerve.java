@@ -19,6 +19,7 @@ import com.thethriftybot.ThriftyNova.PIDSlot;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.wpilibj.DataLogManager;
+import edu.wpi.first.wpilibj.RobotBase;
 import swervelib.encoders.SwerveAbsoluteEncoder;
 import swervelib.parser.PIDFConfig;
 import swervelib.telemetry.SwerveDriveTelemetry;
@@ -42,10 +43,6 @@ public class ThriftyNovaSwerve extends SwerveMotor
    * ThriftyNova Instance.
    */
   private       ThriftyNova   motor;
-  /**
-   * The Encoder type being used
-   */
-  private       EncoderType   encoderType;
   /**
    * Factory default already occurred.
    */
@@ -105,7 +102,7 @@ public class ThriftyNovaSwerve extends SwerveMotor
     } else
     {
       positionConversion = new Conversion(PositionUnit.ROTATIONS, EncoderType.INTERNAL);
-      velocityConversion = new Conversion(VelocityUnit.RADIANS_PER_SEC, EncoderType.INTERNAL);
+      velocityConversion = new Conversion(VelocityUnit.ROTATIONS_PER_SEC, EncoderType.INTERNAL);
     }
 
     position = this::getConvertedPosition;
@@ -133,7 +130,6 @@ public class ThriftyNovaSwerve extends SwerveMotor
     }
   }
 
-
   private double getConvertedPosition() {
     return positionConversion.fromMotor(motor.getPosition()) * positionConversionFactor;
   }
@@ -151,20 +147,23 @@ public class ThriftyNovaSwerve extends SwerveMotor
     // Factory defaults from https://docs.thethriftybot.com/thrifty-nova/gqCPUYXcVoOZ4KW3DqIr/software-resources/configure-controller-settings/factory-default
     if (!factoryDefaultOccurred)
     {
-      motor.setInverted(false);
-      motor.setBrakeMode(false);
-      setCurrentLimit(40);
-      motor.setEncoderPosition(0);
-      motor.setMaxOutput(1.0);
-      motor.setRampDown(100);
-      motor.setRampUp(100);
-      configureCANStatusFrames(0.25, 0.1, 0.25, 0.5, 0.50);
-      motor.setSoftLimits(0, 0);
-      configurePIDF(new PIDFConfig());
-      motor.pid1.setP(0)
-                .setI(0)
-                .setD(0)
-                .setFF(0.0);
+      if (RobotBase.isReal())
+      {
+        motor.setInverted(false);
+        motor.setBrakeMode(false);
+        setCurrentLimit(40);
+        motor.setEncoderPosition(0);
+        motor.setMaxOutput(1.0);
+        motor.setRampDown(100);
+        motor.setRampUp(100);
+        configureCANStatusFrames(0.25, 0.1, 0.25, 0.5, 0.50);
+        motor.setSoftLimits(0, 0);
+        configurePIDF(new PIDFConfig());
+        motor.pid1.setP(0)
+                  .setI(0)
+                  .setD(0)
+                  .setFF(0.0);
+      }
       factoryDefaultOccurred = true;
     }
   }
@@ -207,7 +206,8 @@ public class ThriftyNovaSwerve extends SwerveMotor
   public void configureIntegratedEncoder(double positionConversionFactor)
   {
     this.positionConversionFactor = positionConversionFactor;
-    this.velocityConversionFactor = positionConversionFactor;
+    this.velocityConversionFactor = positionConversionFactor / 60.0;
+
     motor.useEncoderType(EncoderType.INTERNAL);
     configureCANStatusFrames(0.25, 0.01, 0.01, 0.02, 0.20);
   }
@@ -385,7 +385,7 @@ public class ThriftyNovaSwerve extends SwerveMotor
   @Override
   public double getVelocity()
   {
-    return velocityConversion.fromMotor(motor.getVelocity()) * velocityConversionFactor;
+    return velocity.get();
   }
 
   /**
@@ -396,14 +396,7 @@ public class ThriftyNovaSwerve extends SwerveMotor
   @Override
   public double getPosition()
   {
-    if (absoluteEncoder.isPresent()) 
-    {
-      return absoluteEncoder.get().getAbsolutePosition();
-    }
-    else 
-    {
-      return positionConversion.fromMotor(motor.getPosition()) * positionConversionFactor;
-    }
+    return position.get();
   }
 
   /**
