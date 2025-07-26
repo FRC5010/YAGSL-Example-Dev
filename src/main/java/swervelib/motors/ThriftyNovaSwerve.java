@@ -20,7 +20,6 @@ import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.RobotBase;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import swervelib.encoders.SwerveAbsoluteEncoder;
 import swervelib.parser.PIDFConfig;
 import swervelib.telemetry.SwerveDriveTelemetry;
@@ -138,10 +137,7 @@ public class ThriftyNovaSwerve extends SwerveMotor
 
   private double getConvertedPosition() {
     double motorPosition = motor.getPosition();
-    SmartDashboard.putNumber(isDriveMotor ? "D" : "A" + motor.getID() + " GetPos Motor", motorPosition);
-    double convertedPosition = motorPosition / positionConversionFactor;
-    SmartDashboard.putNumber(isDriveMotor ? "D" : "A" + motor.getID() + " GetPos Conv", convertedPosition);
-    
+    double convertedPosition = motorPosition / positionConversionFactor;    
     return convertedPosition;
   }
 
@@ -152,9 +148,7 @@ public class ThriftyNovaSwerve extends SwerveMotor
    */
   private double getConvertedVelocity() {
     double motorVelocity = motor.getVelocity();
-    SmartDashboard.putNumber(isDriveMotor ? "D" : "A" + motor.getID() + " GetVel Motor", motorVelocity);
     double convertedVelocity = motorVelocity / velocityConversionFactor;
-    SmartDashboard.putNumber(isDriveMotor ? "D" : "A" + motor.getID() + " GetVel Conv", convertedVelocity);
     
     return convertedVelocity;
   }
@@ -374,21 +368,11 @@ public class ThriftyNovaSwerve extends SwerveMotor
     if (RobotBase.isReal()) {
       if (isDriveMotor)
       {
-        // SmartDashboard.putNumber(isDriveMotor ? "D" : "A" + motor.getID() + " SetPoint", setpoint);
-        // double convertedSetpoint = setpoint / velocityConversionFactor;
-        // SmartDashboard.putNumber(isDriveMotor ? "D" : "A" + motor.getID() + " SetPoint Conv", convertedSetpoint);
-        // double motorSetpoint = velocityConversion.toMotor(convertedSetpoint);
-        // SmartDashboard.putNumber(isDriveMotor ? "D" : "A" + motor.getID() + " SetPoint Motor", motorSetpoint);
-        // motor.setVelocity(motorSetpoint);
-        // SmartDashboard.putNumber(isDriveMotor ? "D" : "A" + motor.getID() + " FeedFwd", feedforward/setpoint);
-        // motor.pid0.setFF(feedforward/setpoint);
         setVoltage(feedforward);
       } else
       {
         double convertedSetpoint = absoluteEncoder.map(it -> setpoint).orElse(setpoint / positionConversionFactor);
-        SmartDashboard.putNumber(isDriveMotor ? "D" : "A" + motor.getID() + " SetPoint Conv", convertedSetpoint);
         double motorSetpoint = positionConversion.toMotor(convertedSetpoint);
-        SmartDashboard.putNumber(isDriveMotor ? "D" : "A" + motor.getID() + " SetPoint Motor", motorSetpoint);
         motor.setPosition(motorSetpoint);
       }
     }
@@ -413,7 +397,6 @@ public class ThriftyNovaSwerve extends SwerveMotor
   @Override
   public void setVoltage(double voltage)
   {
-    SmartDashboard.putNumber(isDriveMotor ? "D" : "A" + motor.getID() + " Voltage", voltage);
     motor.setVoltage(voltage);
   }
 
@@ -461,9 +444,7 @@ public class ThriftyNovaSwerve extends SwerveMotor
     if (!absoluteEncoder.isPresent()) 
     {
       double convertedPosition = position / positionConversionFactor;
-      SmartDashboard.putNumber(isDriveMotor ? "D" : "A" + motor.getID() + " SetPos Conv", convertedPosition);
       double motorPosition = positionConversion.toMotor(convertedPosition);
-      SmartDashboard.putNumber(isDriveMotor ? "D" : "A" + motor.getID() + " SetPos Motor", motorPosition);
       motor.setEncoderPosition(motorPosition);
     }
   }
