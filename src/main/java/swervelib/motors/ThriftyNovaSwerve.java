@@ -20,6 +20,7 @@ import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.RobotBase;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import swervelib.encoders.SwerveAbsoluteEncoder;
 import swervelib.parser.PIDFConfig;
 import swervelib.telemetry.SwerveDriveTelemetry;
@@ -229,7 +230,7 @@ public class ThriftyNovaSwerve extends SwerveMotor
   public void configureIntegratedEncoder(double positionConversionFactor)
   {
     this.positionConversionFactor = positionConversionFactor;
-    this.velocityConversionFactor = positionConversionFactor * 60.0;
+    this.velocityConversionFactor = positionConversionFactor;
 
     motor.useEncoderType(EncoderType.INTERNAL);
     configureCANStatusFrames(0.25, 0.01, 0.01, 0.02, 0.20);
@@ -368,7 +369,9 @@ public class ThriftyNovaSwerve extends SwerveMotor
     if (RobotBase.isReal()) {
       if (isDriveMotor)
       {
-        setVoltage(feedforward);
+        double convertedSetpoint = setpoint / velocityConversionFactor;
+        double motorSetpoint = velocityConversion.toMotor(convertedSetpoint);
+        motor.setVelocity(motorSetpoint, feedforward);
       } else
       {
         double convertedSetpoint = absoluteEncoder.map(it -> setpoint).orElse(setpoint / positionConversionFactor);
@@ -519,19 +522,20 @@ public class ThriftyNovaSwerve extends SwerveMotor
    */
   private void checkErrors(String message)
   {
-    if (SwerveDriveTelemetry.verbosity.ordinal() >= TelemetryVerbosity.INFO.ordinal())
+    if (SwerveDriveTelemetry.verbosity.ordinal() >= TelemetryVerbosity.HIGH.ordinal())
     {
       List<ThriftyNova.Error> errors = motor.getErrors();
       if (errors.size() > 0)
       {
         for (ThriftyNova.Error error : errors)
         {
-          if (SwerveDriveTelemetry.verbosity.ordinal() >= TelemetryVerbosity.HIGH.ordinal()) {
+          if (SwerveDriveTelemetry.verbosity.ordinal() >= TelemetryVerbosity.MACHINE.ordinal()) {
             System.out.println(this.getClass().getSimpleName() + ": " + message + error.toString());
           }
           DataLogManager.log(this.getClass().getSimpleName() + ": " + message + error.toString());
         }
       }
+      motor.clearErrors();
     }
   }
 
