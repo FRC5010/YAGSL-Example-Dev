@@ -204,7 +204,7 @@ public class ThriftyNovaSwerve extends SwerveMotor
   @Override
   public SwerveMotor setAbsoluteEncoder(SwerveAbsoluteEncoder encoder)
   {
-    if (null == encoder) 
+    if (encoder == null) 
     {
       motor.useEncoderType(EncoderType.INTERNAL);
       position = this::getConvertedPosition;
