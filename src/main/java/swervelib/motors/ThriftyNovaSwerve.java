@@ -4,6 +4,10 @@
 
 package swervelib.motors;
 
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Supplier;
+
 import com.thethriftybot.Conversion;
 import com.thethriftybot.Conversion.PositionUnit;
 import com.thethriftybot.Conversion.VelocityUnit;
@@ -11,14 +15,16 @@ import com.thethriftybot.ThriftyNova;
 import com.thethriftybot.ThriftyNova.CurrentType;
 import com.thethriftybot.ThriftyNova.EncoderType;
 import com.thethriftybot.ThriftyNova.PIDSlot;
+
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.wpilibj.DataLogManager;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.RobotController;
-import java.util.List;
+import edu.wpi.first.wpilibj.RobotBase;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import swervelib.encoders.SwerveAbsoluteEncoder;
 import swervelib.parser.PIDFConfig;
+import swervelib.telemetry.SwerveDriveTelemetry;
+import swervelib.telemetry.SwerveDriveTelemetry.TelemetryVerbosity;
 
 /**
  * An implementation of {@link ThriftyNova} as a {@link SwerveMotor}.
@@ -39,10 +45,6 @@ public class ThriftyNovaSwerve extends SwerveMotor
    */
   private       ThriftyNova   motor;
   /**
-   * The Encoder type being used
-   */
-  private       EncoderType   encoderType;
-  /**
    * Factory default already occurred.
    */
   private       boolean       factoryDefaultOccurred   = false;
@@ -62,6 +64,18 @@ public class ThriftyNovaSwerve extends SwerveMotor
    * The position conversion factor for the encoder
    */
   private       double        velocityConversionFactor = 1.0 / 60.0;
+  /**
+   * Absolute encoder attached to the SparkMax (if exists)
+   */
+  private       Optional<SwerveAbsoluteEncoder> absoluteEncoder = Optional.empty();
+  /**
+   * Supplier for the velocity of the motor controller.
+   */
+  private       Supplier<Double>                velocity;
+  /**
+   * Supplier for the position of the motor controller.
+   */
+  private       Supplier<Double>                position;
 
   /**
    * Initialize the swerve motor.
@@ -88,9 +102,12 @@ public class ThriftyNovaSwerve extends SwerveMotor
       velocityConversion = new Conversion(VelocityUnit.ROTATIONS_PER_SEC, EncoderType.INTERNAL);
     } else
     {
-      positionConversion = new Conversion(PositionUnit.DEGREES, EncoderType.INTERNAL);
-      velocityConversion = new Conversion(VelocityUnit.DEGREES_PER_SEC, EncoderType.INTERNAL);
+      positionConversion = new Conversion(PositionUnit.ROTATIONS, EncoderType.INTERNAL);
+      velocityConversion = new Conversion(VelocityUnit.ROTATIONS_PER_SEC, EncoderType.INTERNAL);
     }
+
+    position = this::getConvertedPosition;
+    velocity = this::getConvertedVelocity;
   }
 
   /**
@@ -105,15 +122,37 @@ public class ThriftyNovaSwerve extends SwerveMotor
     this(new ThriftyNova(id), isDriveMotor, motor);
   }
 
+  /**
+   * Close the motor controller and release any resources it may have acquired.
+   * 
+   * @throws RuntimeException If an exception is thrown while closing the motor.
+   */
   @Override
   public void close() {
     try {
-    motor.close();
+      motor.close();
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
   }
 
+  private double getConvertedPosition() {
+    double motorPosition = motor.getPosition();
+    double convertedPosition = motorPosition / positionConversionFactor;    
+    return convertedPosition;
+  }
+
+  /**
+   * Get the velocity of the motor in meters per second or degrees per second after conversion.
+   *
+   * @return velocity in meters per second or degrees per second.
+   */
+  private double getConvertedVelocity() {
+    double motorVelocity = motor.getVelocity();
+    double convertedVelocity = motorVelocity / velocityConversionFactor;
+    
+    return convertedVelocity;
+  }
 
   /**
    * Set factory defaults on the motor controller.
@@ -124,21 +163,23 @@ public class ThriftyNovaSwerve extends SwerveMotor
     // Factory defaults from https://docs.thethriftybot.com/thrifty-nova/gqCPUYXcVoOZ4KW3DqIr/software-resources/configure-controller-settings/factory-default
     if (!factoryDefaultOccurred)
     {
-      motor.setInverted(false);
-      motor.setBrakeMode(false);
-      setCurrentLimit(40);
-      motor.setEncoderPosition(0);
-      motor.setMaxOutput(1.0);
-      motor.setRampDown(100);
-      motor.setRampUp(100);
-      configureCANStatusFrames(0.25, 0.1, 0.25, 0.5, 0.50);
-      motor.setSoftLimits(0, 0);
-      configurePIDF(new PIDFConfig());
-      motor.pid1.setP(0)
-                .setI(0)
-                .setD(0)
-                .setFF(0.0);
-      DriverStation.reportWarning("Factory defaults not implemented for ThriftyNovaSwerve", true);
+      if (RobotBase.isReal())
+      {
+        motor.setInverted(false);
+        motor.setBrakeMode(false);
+        setCurrentLimit(40);
+        motor.setEncoderPosition(0);
+        motor.setMaxOutput(1.0);
+        motor.setRampDown(100);
+        motor.setRampUp(100);
+        configureCANStatusFrames(0.25, 0.1, 0.25, 0.5, 0.50);
+        motor.setSoftLimits(0, 0);
+        configurePIDF(new PIDFConfig());
+        motor.pid1.setP(0)
+                  .setI(0)
+                  .setD(0)
+                  .setFF(0.0);
+      }
       factoryDefaultOccurred = true;
     }
   }
@@ -149,7 +190,9 @@ public class ThriftyNovaSwerve extends SwerveMotor
   @Override
   public void clearStickyFaults()
   {
-    motor.clearErrors();
+    if (RobotBase.isReal()) {
+      motor.clearErrors();
+    }
   }
 
   /**
@@ -161,34 +204,35 @@ public class ThriftyNovaSwerve extends SwerveMotor
   @Override
   public SwerveMotor setAbsoluteEncoder(SwerveAbsoluteEncoder encoder)
   {
-    if (isDriveMotor)
+    if (encoder == null) 
     {
-      positionConversion = new Conversion(PositionUnit.ROTATIONS, EncoderType.ABS);
-      velocityConversion = new Conversion(VelocityUnit.ROTATIONS_PER_SEC, EncoderType.ABS);
-    } else
-    {
-      positionConversion = new Conversion(PositionUnit.DEGREES, EncoderType.ABS);
-      velocityConversion = new Conversion(VelocityUnit.DEGREES_PER_SEC, EncoderType.ABS);
+      motor.useEncoderType(EncoderType.INTERNAL);
+      position = this::getConvertedPosition;
+      velocity = this::getConvertedVelocity;
     }
-    motor.useEncoderType(EncoderType.ABS);
+    else 
+    {
+      absoluteEncoder = Optional.of(encoder);
+      position = absoluteEncoder.get()::getAbsolutePosition;
+      velocity = absoluteEncoder.get()::getVelocity;
+      motor.useEncoderType(EncoderType.ABS);  
+    }
     return this;
   }
 
+  /**
+   * Configure the integrated encoder for the ThriftyNova swerve module. Sets the conversion
+   * factors for position and velocity, and configures the CAN status frames.
+   *
+   * @param positionConversionFactor The conversion factor to apply for position.
+   */
   @Override
   public void configureIntegratedEncoder(double positionConversionFactor)
   {
-    motor.useEncoderType(EncoderType.INTERNAL);
-    if (isDriveMotor)
-    {
-      positionConversion = new Conversion(PositionUnit.ROTATIONS, EncoderType.INTERNAL);
-      velocityConversion = new Conversion(VelocityUnit.ROTATIONS_PER_SEC, EncoderType.INTERNAL);
-    } else
-    {
-      positionConversion = new Conversion(PositionUnit.DEGREES, EncoderType.INTERNAL);
-      velocityConversion = new Conversion(VelocityUnit.DEGREES_PER_SEC, EncoderType.INTERNAL);
-    }
     this.positionConversionFactor = positionConversionFactor;
-    this.velocityConversionFactor = positionConversionFactor / 60.0;
+    this.velocityConversionFactor = positionConversionFactor;
+
+    motor.useEncoderType(EncoderType.INTERNAL);
     configureCANStatusFrames(0.25, 0.01, 0.01, 0.02, 0.20);
   }
 
@@ -204,12 +248,15 @@ public class ThriftyNovaSwerve extends SwerveMotor
   public void configureCANStatusFrames(
       double fault, double sensor, double quadSensor, double control, double current)
   {
-    motor.canFreq.setFault(fault);
-    motor.canFreq.setSensor(sensor);
-    motor.canFreq.setQuadSensor(quadSensor);
-    motor.canFreq.setControl(control);
-    motor.canFreq.setCurrent(current);
-    checkErrors("Configuring CAN status frames failed: ");
+    if (RobotBase.isReal())
+    {
+      motor.canFreq.setFault(fault);
+      motor.canFreq.setSensor(sensor);
+      motor.canFreq.setQuadSensor(quadSensor);
+      motor.canFreq.setControl(control);
+      motor.canFreq.setCurrent(current);
+      checkErrors("Configuring CAN status frames failed: ");
+    }
   }
 
   /**
@@ -220,8 +267,12 @@ public class ThriftyNovaSwerve extends SwerveMotor
   @Override
   public void configurePIDF(PIDFConfig config)
   {
-    motor.pid0.setP(config.p).setI(config.i).setD(config.d);
-    checkErrors("Configuring PIDF failed: ");
+    if (RobotBase.isReal())
+    {
+      motor.pid0.setP(config.p).setI(config.i).setD(config.d);
+      motor.usePIDSlot(PIDSlot.SLOT0);
+      checkErrors("Configuring PIDF failed: ");
+    }
   }
 
   /**
@@ -253,8 +304,10 @@ public class ThriftyNovaSwerve extends SwerveMotor
   @Override
   public void setMotorBrake(boolean isBrakeMode)
   {
-    motor.setBrakeMode(isBrakeMode);
-    checkErrors("Setting motor brake mode failed: ");
+    if (RobotBase.isReal()) {
+      motor.setBrakeMode(isBrakeMode);
+      checkErrors("Setting motor brake mode failed: ");
+    }
   }
 
   /**
@@ -265,8 +318,10 @@ public class ThriftyNovaSwerve extends SwerveMotor
   @Override
   public void setInverted(boolean inverted)
   {
-    motor.setInverted(inverted);
-    checkErrors("Setting motor inversion failed: ");
+    if (RobotBase.isReal()) {
+      motor.setInverted(inverted);
+      checkErrors("Setting motor inversion failed: ");
+    }
   }
 
   /**
@@ -311,13 +366,18 @@ public class ThriftyNovaSwerve extends SwerveMotor
   @Override
   public void setReference(double setpoint, double feedforward, double position)
   {
-    if (isDriveMotor)
-    {
-      motor.pid0.setFF(feedforward);
-      motor.setVelocity(setpoint);
-    } else
-    {
-      motor.setPosition(setpoint / 360.0);
+    if (RobotBase.isReal()) {
+      if (isDriveMotor)
+      {
+        double convertedSetpoint = setpoint / velocityConversionFactor;
+        double motorSetpoint = velocityConversion.toMotor(convertedSetpoint);
+        motor.setVelocity(motorSetpoint, feedforward);
+      } else
+      {
+        double convertedSetpoint = absoluteEncoder.map(it -> setpoint).orElse(setpoint / positionConversionFactor);
+        double motorSetpoint = positionConversion.toMotor(convertedSetpoint);
+        motor.setPosition(motorSetpoint);
+      }
     }
   }
 
@@ -329,7 +389,7 @@ public class ThriftyNovaSwerve extends SwerveMotor
   @Override
   public double getVoltage()
   {
-    throw new UnsupportedOperationException("Unimplemented method 'getVoltage'");
+    return motor.getVoltage();
   }
 
   /**
@@ -340,7 +400,7 @@ public class ThriftyNovaSwerve extends SwerveMotor
   @Override
   public void setVoltage(double voltage)
   {
-    motor.setPercent(voltage / RobotController.getBatteryVoltage());
+    motor.setVoltage(voltage);
   }
 
   /**
@@ -362,7 +422,7 @@ public class ThriftyNovaSwerve extends SwerveMotor
   @Override
   public double getVelocity()
   {
-    return velocityConversion.fromMotor(motor.getVelocity()) * velocityConversionFactor;
+    return velocity.get();
   }
 
   /**
@@ -373,7 +433,7 @@ public class ThriftyNovaSwerve extends SwerveMotor
   @Override
   public double getPosition()
   {
-    return positionConversion.fromMotor(motor.getPosition()) * positionConversionFactor;
+    return position.get();
   }
 
   /**
@@ -384,12 +444,23 @@ public class ThriftyNovaSwerve extends SwerveMotor
   @Override
   public void setPosition(double position)
   {
-    motor.setEncoderPosition(positionConversion.toMotor(position));
+    if (!absoluteEncoder.isPresent()) 
+    {
+      double convertedPosition = position / positionConversionFactor;
+      double motorPosition = positionConversion.toMotor(convertedPosition);
+      motor.setEncoderPosition(motorPosition);
+    }
   }
 
+  /**
+   * Set the voltage compensation for the swerve module motor.
+   *
+   * @param nominalVoltage Nominal voltage for operation to output to.
+   */
   @Override
   public void setVoltageCompensation(double nominalVoltage)
   {
+    motor.setVoltageCompensation(nominalVoltage);
   }
 
   /**
@@ -401,8 +472,10 @@ public class ThriftyNovaSwerve extends SwerveMotor
   @Override
   public void setCurrentLimit(int currentLimit)
   {
-    motor.setMaxCurrent(CurrentType.STATOR, currentLimit);
-    checkErrors("Setting current limit failed: ");
+    if (RobotBase.isReal()) {
+      motor.setMaxCurrent(CurrentType.STATOR, currentLimit);
+      checkErrors("Setting current limit failed: ");
+    }
   }
 
   /**
@@ -413,9 +486,11 @@ public class ThriftyNovaSwerve extends SwerveMotor
   @Override
   public void setLoopRampRate(double rampRate)
   {
-    motor.setRampUp(rampRate);
-    motor.setRampDown(rampRate);
-    checkErrors("Setting loop ramp rate failed: ");
+    if (RobotBase.isReal()) {
+      motor.setRampUp(rampRate);
+      motor.setRampDown(rampRate);
+      checkErrors("Setting loop ramp rate failed: ");
+    }
   }
 
   /**
@@ -437,7 +512,7 @@ public class ThriftyNovaSwerve extends SwerveMotor
   @Override
   public boolean usingExternalFeedbackSensor()
   {
-    return EncoderType.ABS == encoderType;
+    return absoluteEncoder.isPresent();
   }
 
   /**
@@ -447,18 +522,28 @@ public class ThriftyNovaSwerve extends SwerveMotor
    */
   private void checkErrors(String message)
   {
-    List<ThriftyNova.Error> errors = motor.getErrors();
-    if (errors.size() > 0)
+    if (SwerveDriveTelemetry.verbosity.ordinal() >= TelemetryVerbosity.HIGH.ordinal())
     {
-      for (ThriftyNova.Error error : errors)
+      List<ThriftyNova.Error> errors = motor.getErrors();
+      if (errors.size() > 0)
       {
-        DataLogManager.log(this.getClass().getSimpleName() + ": " + message + error.toString());
-        System.out.println(this.getClass().getSimpleName() + ": " + message + error.toString());
+        for (ThriftyNova.Error error : errors)
+        {
+          if (SwerveDriveTelemetry.verbosity.ordinal() >= TelemetryVerbosity.MACHINE.ordinal()) {
+            System.out.println(this.getClass().getSimpleName() + ": " + message + error.toString());
+          }
+          DataLogManager.log(this.getClass().getSimpleName() + ": " + message + error.toString());
+        }
       }
+      motor.clearErrors();
     }
-
   }
 
+  /**
+   * Get the simulated {@link DCMotor} associated with this motor controller.
+   *
+   * @return Simulated {@link DCMotor} instance.
+   */
   @Override
   public DCMotor getSimMotor()
   {
