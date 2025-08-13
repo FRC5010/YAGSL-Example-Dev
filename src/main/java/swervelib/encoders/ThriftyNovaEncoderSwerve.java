@@ -5,6 +5,7 @@ import com.thethriftybot.Conversion.PositionUnit;
 import com.thethriftybot.Conversion.VelocityUnit;
 import com.thethriftybot.ThriftyNova;
 import com.thethriftybot.ThriftyNova.EncoderType;
+import com.thethriftybot.ThriftyNova.ExternalEncoder;
 
 import swervelib.motors.SwerveMotor;
 import swervelib.motors.ThriftyNovaSwerve;
@@ -42,11 +43,12 @@ public class ThriftyNovaEncoderSwerve extends SwerveAbsoluteEncoder
    *
    * @param motor {@link SwerveMotor} through which to interface with the attached encoder .
    */
-  public ThriftyNovaEncoderSwerve(SwerveMotor motor)
+  public ThriftyNovaEncoderSwerve(SwerveMotor motor, String encoderType)
   {
     this.motor = (ThriftyNova) motor.getMotor();
     positionConversion = new Conversion(PositionUnit.DEGREES, EncoderType.ABS);
     velocityConversion = new Conversion(VelocityUnit.DEGREES_PER_SEC, EncoderType.ABS);
+    this.motor.setExternalEncoder(ExternalEncoder.valueOf(encoderType));
     this.motor.useEncoderType(EncoderType.ABS);
   }
 

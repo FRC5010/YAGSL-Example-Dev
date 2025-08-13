@@ -111,11 +111,21 @@ public class DeviceJson
         return new TalonSRXEncoderSwerve(motor, FeedbackDevice.PulseWidthEncodedPosition);
       case "talonsrx_analog":
         return new TalonSRXEncoderSwerve(motor, FeedbackDevice.Analog);
-      case "thrifty_nova":
+      case "thrifty_nova_rev":
         return ReflectionsManager.<SwerveAbsoluteEncoder>create(VENDOR.THRIFTYBOT,
-                                                                "com.thethriftybot.ThriftyNova",
-                                                                new Class[]{SwerveMotor.class},
-                                                                new Object[]{motor});
+                                                                "swervelib.encoders.ThriftyNovaEncoderSwerve",
+                                                                new Class[]{SwerveMotor.class, String.class},
+                                                                new Object[]{motor, "REV_ENCODER"});
+      case "thrifty_nova_redux":
+        return ReflectionsManager.<SwerveAbsoluteEncoder>create(VENDOR.THRIFTYBOT,
+                                                                "swervelib.encoders.ThriftyNovaEncoderSwerve",
+                                                                new Class[]{SwerveMotor.class, String.class},
+                                                                new Object[]{motor, "REDUX_ENCODER"});
+      case "thrifty_nova_srx_mag":
+      return ReflectionsManager.<SwerveAbsoluteEncoder>create(VENDOR.THRIFTYBOT,
+                                                              "swervelib.encoders.ThriftyNovaEncoderSwerve",
+                                                              new Class[]{SwerveMotor.class, String.class},
+                                                              new Object[]{motor, "SRX_MAG_ENCODER"});
       default:
         throw new RuntimeException(type + " is not a recognized absolute encoder type.");
     }
