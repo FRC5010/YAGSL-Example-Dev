@@ -46,10 +46,14 @@ public class ThriftyNovaEncoderSwerve extends SwerveAbsoluteEncoder
   public ThriftyNovaEncoderSwerve(SwerveMotor motor, String encoderType)
   {
     this.motor = (ThriftyNova) motor.getMotor();
-    positionConversion = new Conversion(PositionUnit.DEGREES, EncoderType.ABS);
     velocityConversion = new Conversion(VelocityUnit.DEGREES_PER_SEC, EncoderType.ABS);
-    this.motor.setExternalEncoder(ExternalEncoder.valueOf(encoderType));
-    this.motor.useEncoderType(EncoderType.ABS);
+    positionConversion = new Conversion(PositionUnit.DEGREES, EncoderType.ABS);
+    ExternalEncoder externalEncoderType = ExternalEncoder.valueOf(encoderType);
+    this.motor.setExternalEncoder(externalEncoderType);
+    setAbsoluteEncoderOffset(offset);
+    if (ExternalEncoder.REDUX_ENCODER == externalEncoderType) {
+      this.motor.setAbsoluteWrapping(true);
+    }
   }
 
   @Override
@@ -95,9 +99,9 @@ public class ThriftyNovaEncoderSwerve extends SwerveAbsoluteEncoder
   @Override
   public double getAbsolutePosition()
   {
-    double rawMotor = motor.getPosition();
-    double convertedMotor = positionConversion.fromMotor(rawMotor);
-    return (convertedMotor + offset) * (inverted ? -1.0 : 1.0);
+    double rawMotor = motor.getPositionAbs();
+    double convertedPosition = positionConversion.fromMotor(rawMotor);
+    return convertedPosition * (inverted ? -1.0 : 1.0);
   }
 
   /**
@@ -119,6 +123,7 @@ public class ThriftyNovaEncoderSwerve extends SwerveAbsoluteEncoder
   public boolean setAbsoluteEncoderOffset(double offset)
   {
     this.offset = offset;
+    motor.setAbsOffset((int) offset);
     return true;
   }
 
